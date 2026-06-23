@@ -1,0 +1,443 @@
+{
+  "name": "Produção",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Telegram Trigger').first().json.message.text }}",
+        "options": {
+          "systemMessage": "=Você é o HR Buddy, assistente virtual de RH da ChocolaTech.\n\nCLASSIFICAÇÃO DA MENSAGEM: {{ $('Message a model').first().json.content.parts[0].text.trim() }}\nREGRAS:\n1 Sempre responda em português.\n2 Responda APENAS dúvidas relacionadas a RH.\n\nTIPO DE RESPOSTA:\n- Se a classificação for RH_SIMPLES: responda de forma curta e simpática, sem usar ferramentas.\n- Se a classificação for RH_COMPLEXO: use as ferramentas MySQL e Vector Store para responder com dados precisos.\n\nIDENTIFICAÇÃO DO FUNCIONÁRIO:\n- Se o usuário não disser quem é, pergunte o nome completo dele logo na primeira mensagem.\n- Use a ferramenta MySQL para buscar na tabela funcionarios usando SEMPRE o NOME COMPLETO informado pelo usuário na conversa.\n- Se encontrado: use os saldos de férias e banco de horas.\n- Se não encontrado: não invente dados pessoais. Responda apenas com base nas políticas gerais de RH do Vector Store.\n- Use a base de conhecimento para dúvidas gerais.\n\nFORMATAÇÃO: Nunca use markdown, asteriscos ou hashtags nas respostas. Use apenas texto simples.\n\nLEMBRE-SE: Se o usuário não se identificou, peça o nome completo ANTES de qualquer outra resposta."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        80,
+        0
+      ],
+      "id": "2688bd2b-8d2b-46ee-9ff6-73a8370682c0",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').first().json.message.chat.id }}-{{ Math.floor(Date.now() / 86400000) }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        176,
+        320
+      ],
+      "id": "aaa88b94-6d15-45b7-b281-f32613bc8180",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Busque informações sobre politicas de RH férias horários e rotinas da empresa Chocolatech",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        288,
+        224
+      ],
+      "id": "f98cf067-d5d5-4ebb-9588-695a4fc37e00",
+      "name": "Simple Vector Store"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "__rl": true,
+          "value": "funcionarios",
+          "mode": "list",
+          "cachedResultName": "funcionarios"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "nome",
+              "condition": "LIKE",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', `Sempre use o formato %nome% (com % no inicio e no fim) para buscar parcial,\nExemplo:\n%João Silva%`, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySqlTool",
+      "typeVersion": 2.5,
+      "position": [
+        592,
+        224
+      ],
+      "id": "1bb78a37-e47c-4dc7-9076-333cadd389bb",
+      "name": "Select rows from a table in MySQL",
+      "credentials": {
+        "mySql": {
+          "id": "WzdILhWWkEc5P2hA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -832,
+        0
+      ],
+      "id": "e0d04b01-45ea-4f3e-8745-2ef212b5b888",
+      "name": "Telegram Trigger",
+      "webhookId": "9aeaa1f3-d8d4-45a5-b24d-9e7bca328b25",
+      "credentials": {
+        "telegramApi": {
+          "id": "mUeLw8RvRKnuN4wG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        592,
+        0
+      ],
+      "id": "eeecc582-035b-465f-afcf-2687b84b9201",
+      "name": "Send a text message",
+      "webhookId": "a10bda1d-a654-4803-b700-92e7465b8782",
+      "credentials": {
+        "telegramApi": {
+          "id": "mUeLw8RvRKnuN4wG",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        176
+      ],
+      "id": "cc8a5e19-77f5-4290-a5e9-d8a2c2ddaf38",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "sLVu2ayDwJCtg7Nc",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        288,
+        384
+      ],
+      "id": "8857a8a6-86f7-4f15-baf2-0ab1f0975f46",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "sLVu2ayDwJCtg7Nc",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash-lite"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Classifique a mensagem abaixo em uma das categorias:\n- RH_SIMPLES: saudações, agradecimentos, perguntas genéricas sobre RH\n- RH_COMPLEXO: perguntas sobre férias, banco de horas, dados pessoais\n- FORA_DO_TEMA: qualquer coisa não relacionada a RH\n\nResponda APENAS com uma dessas três palavras, sem explicação.\n\nMensagem: {{ $json.message.text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -624,
+        0
+      ],
+      "id": "314241d5-dc34-4726-acbe-d2396ecf3782",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "sLVu2ayDwJCtg7Nc",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.content.parts[0].text }}",
+                    "rightValue": "RH_SIMPLES",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "76430a2a-3668-4fa6-bf7c-55a4e311ec56"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4e669e3f-7e33-433f-a152-d38b17dfc82c",
+                    "leftValue": "={{ $json.content.parts[0].text }}",
+                    "rightValue": "RH_COMPLEXO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4aae8108-5945-4df3-bcc8-cf7ad57474f9",
+                    "leftValue": "={{ $json.content.parts[0].text }}",
+                    "rightValue": "FORA_DO_TEMA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -336,
+        -16
+      ],
+      "id": "cc0e1152-c6d1-4e58-8881-9b73fe5248c8",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Desculpe, só respondo dúvidas relacionadas ao RH da ChocolaTech.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -144,
+        96
+      ],
+      "id": "0d98985c-6a08-4424-938a-6a1ca38ee562",
+      "name": "Send a text message2",
+      "webhookId": "fa6a5604-c541-4488-8a54-cc54136dd953",
+      "credentials": {
+        "telegramApi": {
+          "id": "mUeLw8RvRKnuN4wG",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select rows from a table in MySQL": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Simple Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "821e818e-ff1f-46be-83ed-788db0d7c010",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e6c193c4a3c87b3f3b3edbd65f83c658ef3c088ae20bbd3cfc5e88dfa20924a3"
+  },
+  "nodeGroups": [],
+  "id": "iJfIIB4NSOeQKV33",
+  "tags": []
+}
